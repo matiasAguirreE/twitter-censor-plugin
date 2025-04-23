@@ -3,9 +3,10 @@
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Features](#features)
-3. [Project Structure](#project-structure)
-7. [Team Members](#team-members)
-8. [Acknowledgments](#acknowledgments)
+3. [Architecture](#architecture)
+4. [Project Structure](#project-structure)
+5. [Team Members](#team-members)
+6. [Acknowledgments](#acknowledgments)
 
 ## Introduction
 
@@ -18,6 +19,9 @@ Twitter Censor Plugin is a full-stack project designed to detect and filter toxi
 - Visual tool to manually label tweets.
 - Backend API server to serve the model.
 - Browser extension that detects and hides toxic content in real-time.
+
+## Architecture
+![System Architecture](docs/media/diagram.jpg)
 
 ## Project Structure
 
