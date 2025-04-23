@@ -42,10 +42,10 @@ The project is organized into the following directories:
 ## Team Members
 
 - [Matías Aguirre Erazo](https://github.com/matiasAguirreE)
-- [Franco Navarro]()
+- [Franco Navarro](https://github.com/frank3421)
 - [Ignacio Alveal]()
 - [Joaquín González Latin]()
-- [Vicente Facundo Onetto]()
+- [Vicente Facundo Onetto](https://github.com/Vonetto)
 
 ## Acknowledgments
 
