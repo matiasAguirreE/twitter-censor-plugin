@@ -21,6 +21,4 @@ jobs:
             git fetch 
             git checkout ${{ secrets.MAIN_BRANCH }} 
             git pull 
-            npm install 
-            npm run build 
             exit
