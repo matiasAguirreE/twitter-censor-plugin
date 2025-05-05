@@ -44,7 +44,7 @@ The project is organized into the following directories:
 - [Matías Aguirre Erazo](https://github.com/matiasAguirreE)
 - [Franco Navarro](https://github.com/frank3421)
 - [Ignacio Alveal](https://github.com/overexpOG)
-- [Joaquín González Latin]()
+- [Joaquín González Latin](https://github.com/Lakopy)
 - [Vicente Facundo Onetto](https://github.com/Vonetto)
 
 ## Acknowledgments
