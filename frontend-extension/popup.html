@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Cendurador de X</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      width: 250px;
+      padding: 15px;
+      font-family: 'Roboto', sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    h3 {
+      color: #2c3e50;
+      margin: 0 0 20px 0;
+      text-align: center;
+      font-size: 1.2em;
+    }
+    
+    .option-container {
+      display: flex;
+      align-items: center;
+      margin: 12px 0;
+      padding: 10px;
+      border-radius: 8px;
+      background: #f8f9fa;
+      cursor: pointer;
+      transition: all 0.3s;
+      gap: 12px;
+    }
+    
+    .option-container:hover {
+      background: #e9ecef;
+      transform: translateX(5px);
+    }
+    
+    .circle {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #3498db;
+      position: relative;
+      transition: all 0.3s;
+    }
+    
+    .circle::before {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: #3498db;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    
+    .option-container.active .circle::before {
+      opacity: 1;
+    }
+    
+    .option {
+      flex-grow: 1;
+      color: #2c3e50;
+      font-weight: 500;
+    }
+    
+    .status-btn {
+      width: 100%;
+      padding: 12px;
+      margin: 25px 0 15px 0;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      background: #2ecc71;
+    }
+    
+    .status-btn.no-working {
+      background: #e74c3c;
+    }
+    
+    .confirm-btn {
+      width: 100%;
+      padding: 12px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .confirm-btn:hover {
+      background: #2980b9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h3>Mi Plugin</h3>
+    <div class="option-container">
+      <div class="circle"></div>
+      <div class="option">Racismo</div>
+    </div>
+    <div class="option-container">
+      <div class="circle"></div>
+      <div class="option">Homofobia</div>
+    </div>
+    <div class="option-container">
+      <div class="circle"></div>
+      <div class="option">Mensaje de odio</div>
+    </div>
+    <div class="option-container">
+        <div class="circle"></div>
+        <div class="option">Drogas</div>
+    </div>
+    <div class="option-container">
+        <div class="circle"></div>
+        <div class="option">Violencia</div>
+    </div>
+      
+    <button id="statusButton" class="status-btn">🟢 FUNCIONANDO</button>
+    <button id="confirmButton" class="confirm-btn">Confirmar</button>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
