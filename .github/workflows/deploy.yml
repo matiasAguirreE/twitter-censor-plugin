@@ -17,6 +17,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            cd ${{ secrets.WORK_DIR }} 
             git fetch 
             git checkout ${{ secrets.MAIN_BRANCH }} 
             git pull 
