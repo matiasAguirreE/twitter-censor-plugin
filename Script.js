@@ -74,8 +74,19 @@ const addButtons = (tweet) => {
             const spans = Array.from(tweet.querySelectorAll('div[data-testid="tweetText"] span'));
             const textoTweet=spans.map(span => span.textContent).join(' ');
             const categorias=Object.keys(esSeleccionado).filter(topico=>esSeleccionado[topico]).join(', ');
+            const main = document.querySelector('main');
+            const targetDiv = main.querySelector('div[aria-label="Cronología: Conversación"]');
+            if(targetDiv){
+                const tweetPadre=main.querySelector('article[data-testid="tweet"]');
+                const spansTweetPadre=Array.from(tweetPadre.querySelectorAll('div[data-testid="tweetText"] span'))
+                const textoTweetPadre=spansTweetPadre.map(span=>span.textContent).join(' ');
 
-            window.__pyTweetText=`${textoTweet}\n#############\n${categorias}`;
+                window.__pyTweetText=`${textoTweet}#############${categorias}#############${textoTweetPadre}`;
+            }
+            else{
+                window.__pyTweetText=`${textoTweet}#############${categorias}#############SinTweetPadre`;
+            }
+
         });
 
         // Añadir elementos al DOM
@@ -129,7 +140,7 @@ document.querySelectorAll('article[data-testid="tweet"]').forEach(tweet => {
         const interval = setInterval(() => {
             if (tweet.querySelector('div[data-testid="tweetText"]')) {
                 clearInterval(interval);
-                addButtons(tweet);
+                addButtons(tweet,document);
             }
         }, 100);
     }
