@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // consulta al servidor si es que el texto es censurable
 function verificarCensura(texto) {
-  fetch('http://127.0.0.1:7021/verificarCensura', {
+  fetch('http://gate.dcc.uchile.cl:8638/verificarCensura', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
