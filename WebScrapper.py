@@ -2,12 +2,39 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.chrome.options import Options as ChromeOptions
 import time
 import os
+import argparse
 
 directorioActual=os.path.dirname(os.path.abspath(__file__))
 rutaJavaScript=os.path.join(directorioActual, "Script2.js")
 rutaArchivoTweets=os.path.join(directorioActual,"Tweets.txt")
+
+def get_browser_options(browser_type):
+    options = ChromeOptions()
+    
+    if browser_type.lower() == 'chrome':
+        options.add_argument("--user-data-dir=~/Library/Application Support/Google/Chrome")
+        options.add_argument("--profile-directory=Default")
+    elif browser_type.lower() == 'opera':
+        options.add_argument("--user-data-dir=~/Library/Application Support/com.operasoftware.Opera")
+        options.binary_location = "/Applications/Opera.app/Contents/MacOS/Opera"  # Ruta al ejecutable de Opera
+    else:
+        raise ValueError(f"Navegador no soportado: {browser_type}")
+    
+    # Opciones comunes para ambos navegadores
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    options.add_argument("--start-maximized")
+    options.add_experimental_option("detach", True)
+    
+    return options
+
+def get_driver(browser_type):
+    options = get_browser_options(browser_type)
+    return webdriver.Chrome(options=options)
 
 def inject_bien_buttons(driver):
     try:
@@ -30,18 +57,18 @@ def inject_bien_buttons(driver):
         print(f"⚠️ Error inyectando botones: {str(e)}")
 
 def main():
-    options = webdriver.ChromeOptions()
-    options.add_argument("--user-data-dir=C:/selenium_profile")
-    options.add_argument("--profile-directory=Default")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-    options.add_argument("--start-maximized")
-    options.add_experimental_option("detach", True)
+    # Configurar el parser de argumentos
+    parser = argparse.ArgumentParser(description='Twitter Censor Plugin')
+    parser.add_argument('--browser', type=str, default='chrome',
+                      choices=['chrome', 'opera'],
+                      help='Navegador a utilizar (chrome u opera)')
     
-    driver = webdriver.Chrome(options=options)
+    args = parser.parse_args()
     
     try:
+        print(f"🚀 Iniciando con {args.browser}...")
+        driver = get_driver(args.browser)
+        
         driver.get("https://twitter.com/login")
         print("⚠️ Inicia sesión MANUALMENTE...")
         

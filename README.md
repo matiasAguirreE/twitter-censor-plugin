@@ -5,8 +5,10 @@
 2. [Features](#features)
 3. [Architecture](#architecture)
 4. [Project Structure](#project-structure)
-5. [Team Members](#team-members)
-6. [Acknowledgments](#acknowledgments)
+5. [Installation](#installation)
+6. [Usage](#usage)
+7. [Team Members](#team-members)
+8. [Acknowledgments](#acknowledgments)
 
 ## Introduction
 
@@ -19,6 +21,7 @@ Twitter Censor Plugin is a full-stack project designed to detect and filter toxi
 - Visual tool to manually label tweets.
 - Backend API server to serve the model.
 - Browser extension that detects and hides toxic content in real-time.
+- Support for multiple browsers (Chrome and Opera).
 
 ## Architecture
 ![System Architecture](docs/media/diagram.jpg)
@@ -38,6 +41,45 @@ The project is organized into the following directories:
 7. `tests`: Contains unit and integration tests for backend and model components.
 8. `README.md`: Main documentation file for the project.
 9. `requirements.txt`: Lists the dependencies of the project.
+
+## Installation
+
+1. Create a virtual environment:
+```bash
+python3 -m venv venv
+```
+
+2. Activate the virtual environment:
+```bash
+source venv/bin/activate  # On Unix/macOS
+# or
+.\venv\Scripts\activate  # On Windows
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+## Usage
+
+The script can be run with either Chrome or Opera browser:
+
+1. Using Chrome (default):
+```bash
+python WebScrapper.py
+```
+
+2. Using Opera:
+```bash
+python WebScrapper.py --browser opera
+```
+
+After running the script:
+1. A browser window will open
+2. Log in to Twitter manually
+3. The script will start injecting classification and blur buttons into tweets
+4. Use the buttons to classify tweets and apply/remove blur effects
 
 ## Team Members
 

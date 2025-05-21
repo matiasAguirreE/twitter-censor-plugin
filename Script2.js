@@ -1,4 +1,3 @@
-
 class Tweet{
     constructor(articleTweet){
         this.articleTweet=articleTweet;
@@ -7,8 +6,9 @@ class Tweet{
         this.estadoBotones=this.categoriasBotones.reduce((acc,topico)=>{
             acc[topico]=false;
             return acc;
-        },{});;
+        },{});
         this.articleTweetPadre=null;
+        this.isBlurred = false;
     }
     establecerTweetPadre(tweetPadre){
         this.articleTweetPadre=tweetPadre;
@@ -23,6 +23,26 @@ class Tweet{
             position: relative !important;
             z-index: 1 !important;
         `;
+
+        // Agregar botón de blur
+        const blurBoton = document.createElement('button');
+        blurBoton.style.cssText = `
+            background: #6c757d !important;
+            color: white !important;
+            padding: 8px 16px !important;
+            border-radius: 20px !important;
+            margin: 4px 0 !important;
+            width: 100% !important;
+            cursor: pointer !important;
+            font-weight: bold !important;
+            border: none !important;
+            flex-shrink: 0 !important;
+        `;
+        blurBoton.textContent = 'Toggle Blur';
+        blurBoton.id = "blurBoton";
+        this.divBotones.appendChild(blurBoton);
+
+        // Agregar botón de guardar
         const guardarBoton = document.createElement('button');
         guardarBoton.style.cssText = `
             background: #1da1f2 !important;
@@ -38,6 +58,7 @@ class Tweet{
         `;
         guardarBoton.textContent='Guardar Tweet';
         guardarBoton.id="guardarBoton"
+
         this.categoriasBotones.forEach(topico => {
             const boton = document.createElement('button');
             boton.style.cssText = `
@@ -57,15 +78,15 @@ class Tweet{
             
             boton.addEventListener('click',() => {
                 if(this.estadoBotones[boton.textContent]==false){
-                boton.style.backgroundColor="green";
-                boton.style.color="white";
+                    boton.style.backgroundColor="green";
+                    boton.style.color="white";
                 }
                 else{
                     boton.style.backgroundColor="red";
                     boton.style.color="white";
                 }
                 this.estadoBotones[boton.textContent]=!this.estadoBotones[boton.textContent]
-                });
+            });
             
             this.divBotones.appendChild(boton);
         });
@@ -104,16 +125,33 @@ class Tweet{
             return textoTweetPadre;
         }
     }
+    toggleBlur() {
+        const tweetText = this.articleTweet.querySelector('div[data-testid="tweetText"]');
+        if (tweetText) {
+            if (!this.isBlurred) {
+                tweetText.style.filter = 'blur(8px)';
+                tweetText.style.transition = 'filter 0.3s ease';
+                this.isBlurred = true;
+            } else {
+                tweetText.style.filter = 'none';
+                this.isBlurred = false;
+            }
+        }
+    }
     establecerGuardado(){
-        const guardarBoton=this.divBotones.querySelector("#guardarBoton");
+        const guardarBoton = this.divBotones.querySelector("#guardarBoton");
+        const blurBoton = this.divBotones.querySelector("#blurBoton");
 
-        guardarBoton.addEventListener('click',(e)=>{
-        const categorias=Object.keys(this.estadoBotones).filter(topico=>this.estadoBotones[topico]).join(', ');
-        const textoTweet=this.entregarTextoTweet();
-        const textoTweetPadre=this.entregarTextoTweetPadre();
-            window.__pyTweetText=`${textoTweet}#############${categorias}#############${textoTweetPadre}`;
+        blurBoton.addEventListener('click', () => {
+            this.toggleBlur();
         });
 
+        guardarBoton.addEventListener('click',(e)=>{
+            const categorias=Object.keys(this.estadoBotones).filter(topico=>this.estadoBotones[topico]).join(', ');
+            const textoTweet=this.entregarTextoTweet();
+            const textoTweetPadre=this.entregarTextoTweetPadre();
+            window.__pyTweetText=`${textoTweet}#############${categorias}#############${textoTweetPadre}`;
+        });
     }
 }
 
