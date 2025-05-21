@@ -128,45 +128,41 @@ class Tweet{
     toggleBlur() {
         const tweetContent = this.articleTweet;
         
-        // Blur text
-        const tweetText = tweetContent.querySelector('div[data-testid="tweetText"]');
-        if (tweetText) {
+        // Blur all text blocks
+        const tweetTexts = tweetContent.querySelectorAll('div[data-testid="tweetText"]');
+        tweetTexts.forEach(tweetText => {
             if (!this.isBlurred) {
                 tweetText.style.filter = 'blur(8px)';
                 tweetText.style.transition = 'filter 0.3s ease';
             } else {
                 tweetText.style.filter = 'none';
             }
-        }
+        });
 
         // Blur media containers
         const mediaContainers = [
-            'div[data-testid="tweetPhoto"]',  // Contenedor de fotos
-            'div[data-testid="card.wrapper"]',  // Contenedor de tarjetas
-            'div[data-testid="videoPlayer"]',  // Contenedor de video
-            'div[data-testid="card.layoutLarge.media"]',  // Contenedor de media grande
-            'div[data-testid="card.layoutSmall.media"]',  // Contenedor de media pequeño
-            'div[data-testid="card.layoutProminent.media"]',  // Contenedor de media prominente
-            'div[role="group"]',  // Grupos de media
-            'div[data-testid="tweetPhotoGrid"]'  // Grid de fotos
+            'div[data-testid="tweetPhoto"]',
+            'div[data-testid="card.wrapper"]',
+            'div[data-testid="videoPlayer"]',
+            'div[data-testid="card.layoutLarge.media"]',
+            'div[data-testid="card.layoutSmall.media"]',
+            'div[data-testid="card.layoutProminent.media"]',
+            'div[role="group"]',
+            'div[data-testid="tweetPhotoGrid"]'
         ];
 
         mediaContainers.forEach(selector => {
             const containers = tweetContent.querySelectorAll(selector);
             containers.forEach(container => {
                 if (!this.isBlurred) {
-                    // Aplicar blur al contenedor y todos sus elementos hijos
                     container.style.filter = 'blur(8px)';
                     container.style.transition = 'filter 0.3s ease';
-                    
-                    // Asegurarse de que todos los elementos dentro del contenedor también tengan blur
                     const allElements = container.getElementsByTagName('*');
                     for (let element of allElements) {
                         element.style.filter = 'blur(8px)';
                         element.style.transition = 'filter 0.3s ease';
                     }
                 } else {
-                    // Remover blur del contenedor y todos sus elementos hijos
                     container.style.filter = 'none';
                     const allElements = container.getElementsByTagName('*');
                     for (let element of allElements) {
@@ -176,7 +172,7 @@ class Tweet{
             });
         });
 
-        // Blur videos específicamente
+        // Blur all videos
         const videos = tweetContent.querySelectorAll('video');
         videos.forEach(video => {
             if (!this.isBlurred) {
