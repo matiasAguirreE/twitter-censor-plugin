@@ -38,7 +38,7 @@ class Tweet{
             border: none !important;
             flex-shrink: 0 !important;
         `;
-        blurBoton.textContent = 'Toggle Blur';
+        blurBoton.textContent = 'Blur';
         blurBoton.id = "blurBoton";
         this.divBotones.appendChild(blurBoton);
 
@@ -126,17 +126,74 @@ class Tweet{
         }
     }
     toggleBlur() {
-        const tweetText = this.articleTweet.querySelector('div[data-testid="tweetText"]');
+        const tweetContent = this.articleTweet;
+        
+        // Blur text
+        const tweetText = tweetContent.querySelector('div[data-testid="tweetText"]');
         if (tweetText) {
             if (!this.isBlurred) {
                 tweetText.style.filter = 'blur(8px)';
                 tweetText.style.transition = 'filter 0.3s ease';
-                this.isBlurred = true;
             } else {
                 tweetText.style.filter = 'none';
-                this.isBlurred = false;
             }
         }
+
+        // Blur media containers
+        const mediaContainers = [
+            'div[data-testid="tweetPhoto"]',  // Contenedor de fotos
+            'div[data-testid="card.wrapper"]',  // Contenedor de tarjetas
+            'div[data-testid="videoPlayer"]',  // Contenedor de video
+            'div[data-testid="card.layoutLarge.media"]',  // Contenedor de media grande
+            'div[data-testid="card.layoutSmall.media"]',  // Contenedor de media pequeño
+            'div[data-testid="card.layoutProminent.media"]',  // Contenedor de media prominente
+            'div[role="group"]',  // Grupos de media
+            'div[data-testid="tweetPhotoGrid"]'  // Grid de fotos
+        ];
+
+        mediaContainers.forEach(selector => {
+            const containers = tweetContent.querySelectorAll(selector);
+            containers.forEach(container => {
+                if (!this.isBlurred) {
+                    // Aplicar blur al contenedor y todos sus elementos hijos
+                    container.style.filter = 'blur(8px)';
+                    container.style.transition = 'filter 0.3s ease';
+                    
+                    // Asegurarse de que todos los elementos dentro del contenedor también tengan blur
+                    const allElements = container.getElementsByTagName('*');
+                    for (let element of allElements) {
+                        element.style.filter = 'blur(8px)';
+                        element.style.transition = 'filter 0.3s ease';
+                    }
+                } else {
+                    // Remover blur del contenedor y todos sus elementos hijos
+                    container.style.filter = 'none';
+                    const allElements = container.getElementsByTagName('*');
+                    for (let element of allElements) {
+                        element.style.filter = 'none';
+                    }
+                }
+            });
+        });
+
+        // Blur videos específicamente
+        const videos = tweetContent.querySelectorAll('video');
+        videos.forEach(video => {
+            if (!this.isBlurred) {
+                video.style.filter = 'blur(8px)';
+                video.style.transition = 'filter 0.3s ease';
+            } else {
+                video.style.filter = 'none';
+            }
+        });
+
+        // Update button text
+        const blurBoton = this.divBotones.querySelector("#blurBoton");
+        if (blurBoton) {
+            blurBoton.textContent = this.isBlurred ? 'Blur' : 'Unblur';
+        }
+
+        this.isBlurred = !this.isBlurred;
     }
     establecerGuardado(){
         const guardarBoton = this.divBotones.querySelector("#guardarBoton");
