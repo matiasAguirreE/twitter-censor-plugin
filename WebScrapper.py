@@ -6,20 +6,33 @@ from selenium.webdriver.chrome.options import Options as ChromeOptions
 import time
 import os
 import argparse
+import tempfile
 
 directorioActual=os.path.dirname(os.path.abspath(__file__))
 rutaJavaScript=os.path.join(directorioActual, "Script2.js")
 rutaArchivoTweets=os.path.join(directorioActual,"Tweets.txt")
 
-def get_browser_options(browser_type):
+def get_browser_options(browser_type, use_user_profile=False):
     options = ChromeOptions()
     
     if browser_type.lower() == 'chrome':
-        options.add_argument("--user-data-dir=~/Library/Application Support/Google/Chrome")
-        options.add_argument("--profile-directory=Default")
+        if use_user_profile:
+            chrome_profile_path = os.path.expanduser("~/Library/Application Support/Google/Chrome")
+            options.add_argument(f"--user-data-dir={chrome_profile_path}")
+            options.add_argument("--profile-directory=Profile 1")
+        else:
+            # Usar un perfil temporal
+            temp_profile = tempfile.mkdtemp()
+            options.add_argument(f"--user-data-dir={temp_profile}")
     elif browser_type.lower() == 'opera':
-        options.add_argument("--user-data-dir=~/Library/Application Support/com.operasoftware.Opera")
-        options.binary_location = "/Applications/Opera.app/Contents/MacOS/Opera"  # Ruta al ejecutable de Opera
+        if use_user_profile:
+            opera_profile_path = os.path.expanduser("~/Library/Application Support/com.operasoftware.Opera")
+            options.add_argument(f"--user-data-dir={opera_profile_path}")
+            options.binary_location = "/Applications/Opera.app/Contents/MacOS/Opera"  # Ajusta si usas Opera GX
+        else:
+            temp_profile = tempfile.mkdtemp()
+            options.add_argument(f"--user-data-dir={temp_profile}")
+            options.binary_location = "/Applications/Opera.app/Contents/MacOS/Opera"  # Ajusta si usas Opera GX
     else:
         raise ValueError(f"Navegador no soportado: {browser_type}")
     
@@ -29,11 +42,13 @@ def get_browser_options(browser_type):
     options.add_experimental_option("useAutomationExtension", False)
     options.add_argument("--start-maximized")
     options.add_experimental_option("detach", True)
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
     
     return options
 
-def get_driver(browser_type):
-    options = get_browser_options(browser_type)
+def get_driver(browser_type, use_user_profile=False):
+    options = get_browser_options(browser_type, use_user_profile)
     return webdriver.Chrome(options=options)
 
 def inject_bien_buttons(driver):
@@ -62,12 +77,14 @@ def main():
     parser.add_argument('--browser', type=str, default='chrome',
                       choices=['chrome', 'opera'],
                       help='Navegador a utilizar (chrome u opera)')
+    parser.add_argument('--user-profile', action='store_true',
+                      help='Usar el perfil real del usuario en vez de uno temporal')
     
     args = parser.parse_args()
     
     try:
-        print(f"🚀 Iniciando con {args.browser}...")
-        driver = get_driver(args.browser)
+        print(f"🚀 Iniciando con {args.browser}... (perfil {'real' if args.user_profile else 'temporal'})")
+        driver = get_driver(args.browser, args.user_profile)
         
         driver.get("https://twitter.com/login")
         print("⚠️ Inicia sesión MANUALMENTE...")
