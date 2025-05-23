@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import pandas as pd
 from model import ToxicClassifier
 from config import *
@@ -24,7 +25,15 @@ def evaluate():
 
     # Load the pre-trained model
     model = ToxicClassifier().to(device)
-    model.load_state_dict(torch.load(MODEL_PATH))
+
+    try:
+        state_dict = torch.load(MODEL_PATH, map_location=device)
+        model.load_state_dict(state_dict)
+        print(f"✅ Modelo cargado correctamente desde: {MODEL_PATH}")
+    except Exception as e:
+        print(f"❌ Error al cargar el modelo: {e}")
+        return
+
     model.eval()
 
     # Evaluate the model on the dataset
@@ -33,21 +42,24 @@ def evaluate():
         for batch in loader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
-            labels_batch = batch["labels"].cpu().numpy()
+            labels_batch = batch["labels"].numpy()
             outputs = model(input_ids, attention_mask).cpu().numpy()
             preds.extend(outputs)
             trues.extend(labels_batch)
 
     # Convert predictions and true labels to tensors
+    preds = np.array(preds)
+    trues = np.array(trues)
     preds_bin = (torch.tensor(preds) > 0.5).int()
     trues = torch.tensor(trues).int()
 
     # Calculate and print F1, Precision, and Recall scores for each label
+    print("\n📊 Resultados por clase:")
     for i, label in enumerate(LABELS):
         f1 = f1_score(trues[:, i], preds_bin[:, i])
         precision = precision_score(trues[:, i], preds_bin[:, i])
         recall = recall_score(trues[:, i], preds_bin[:, i])
-        print(f"{label}: F1 Score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
+        print(f"🔹 {label}: F1 Score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
 
 if __name__ == "__main__":
     evaluate()
