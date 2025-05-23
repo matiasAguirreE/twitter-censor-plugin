@@ -37,7 +37,7 @@ class TweetDataset(Dataset):
 def train():
     # Load the dataset with tweets and labels
     df = pd.read_csv(DATA_PATH)
-    X = df["tweet"].tolist()
+    X = df["Tweet"].tolist()
     y = df[LABELS].values.tolist()
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)

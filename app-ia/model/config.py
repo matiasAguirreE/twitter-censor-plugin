@@ -4,7 +4,7 @@ import os
 BASE_DIR = os.path.dirname(__file__)
 
 # Paths for data and model artifacts
-DATA_PATH = os.path.join(BASE_DIR, '..', '..', 'data', 'labeled', 'labeled_tweets.csv')
+DATA_PATH = os.path.join(BASE_DIR, '..', '..', 'data', 'labeled', 'tweets_limpios.csv')
 ARTIFACTS_DIR = os.path.join(BASE_DIR, 'artifacts')
 MODEL_PATH = os.path.join(BASE_DIR, 'artifacts', 'model.pth')
 

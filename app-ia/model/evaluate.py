@@ -14,7 +14,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def evaluate():
     # Load the dataset with tweets and labels
     df = pd.read_csv(DATA_PATH)
-    texts = df["tweet"].tolist()
+    texts = df["Tweet"].tolist()
     labels = df[LABELS].values.tolist()
 
     # Load the tokenizer and create a DataLoader for the dataset
