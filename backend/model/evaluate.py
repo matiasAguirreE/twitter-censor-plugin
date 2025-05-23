@@ -5,7 +5,7 @@ from config import *
 from transformers import AutoTokenizer
 from torch.utils.data import DataLoader
 from train import TweetDataset
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 # Set device to GPU if available, otherwise CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,10 +42,12 @@ def evaluate():
     preds_bin = (torch.tensor(preds) > 0.5).int()
     trues = torch.tensor(trues).int()
 
-    # Calculate and print F1 scores for each label
+    # Calculate and print F1, Precision, and Recall scores for each label
     for i, label in enumerate(LABELS):
-        score = f1_score(trues[:, i], preds_bin[:, i])
-        print(f"{label} F1 Score: {score:.4f}")
+        f1 = f1_score(trues[:, i], preds_bin[:, i])
+        precision = precision_score(trues[:, i], preds_bin[:, i])
+        recall = recall_score(trues[:, i], preds_bin[:, i])
+        print(f"{label}: F1 Score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
 
 if __name__ == "__main__":
     evaluate()
