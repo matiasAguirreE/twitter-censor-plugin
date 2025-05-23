@@ -27,7 +27,7 @@ Twitter Censor Plugin is a full-stack project designed to detect and filter toxi
 
 The project is organized into the following directories:
 
-1. `backend`: Contains the API server, machine learning model, and database logic.
+1. `app-ia`: Contains the API server, machine learning model, and database logic.
 2. `frontend-extension`: Contains the browser extension (JavaScript/TypeScript) for detecting and hiding toxic content.
 3. `data`: Contains datasets used for training and labeling.
    - `raw`: Raw, unprocessed tweet data.
