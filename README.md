@@ -32,12 +32,9 @@ The project is organized into the following directories:
 3. `data`: Contains datasets used for training and labeling.
    - `raw`: Raw, unprocessed tweet data.
    - `labeled`: Tweets labeled as toxic or non-toxic.
-4. `scraper`: Contains scripts for scraping Twitter data via API or other means.
-5. `label-tool`: Contains the interface for manually labeling tweet data.
-6. `docs`: Contains technical documentation, project design notes and other relevant files.
-7. `tests`: Contains unit and integration tests for backend and model components.
-8. `README.md`: Main documentation file for the project.
-9. `requirements.txt`: Lists the dependencies of the project.
+4. `scraping`: Contains scripts for scraping Twitter data via API or other means.
+5. `docs`: Contains technical documentation, project design notes and other relevant files.
+6. `README.md`: Main documentation file for the project.
 
 ## Team Members
 
