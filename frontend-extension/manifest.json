@@ -1,13 +1,19 @@
 {
   "manifest_version": 3,
-  "name": "Mi Plugin",
+  "name": "Censurador de Tweets",
   "version": "1.0",
-  "description": "Plugin con interfaz interactiva",
-  "action": {
-    "default_popup": "popup.html"
-  },
-  "permissions": ["storage"],
+  "description": "Censurar tweets",
+  "permissions": ["scripting"],
   "host_permissions": [
-    "http://gate.dcc.uchile.cl:8638/*"
+    "https://twitter.com/*",
+    "https://x.com/*",
+    "https://withered-glitter-3f84.ignacio-alvbah.workers.dev/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://twitter.com/*", "https://x.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
   ]
 }

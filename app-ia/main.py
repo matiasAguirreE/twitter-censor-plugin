@@ -14,7 +14,7 @@ def verificarCensura():
     texto = tweet['texto']
     censura = verificarCensura_(texto)
     print("se envia: {}".format(censura))
-    return {'censura': censura}
+    return censura
 
 if __name__ == "__main__":
     app.run(port=7021)
