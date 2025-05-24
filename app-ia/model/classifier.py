@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModel
-from config import MODEL_NAME, NUM_LABELS
+from .config import MODEL_NAME, NUM_LABELS
 
 # Define the ToxicClassifier model
 class ToxicClassifier(nn.Module):

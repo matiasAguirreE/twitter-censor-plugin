@@ -3,8 +3,8 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 from torch.optim import AdamW
-from model import ToxicClassifier
-from config import *
+from .classifier import ToxicClassifier
+from .config import *
 from sklearn.model_selection import train_test_split
 import os
 
