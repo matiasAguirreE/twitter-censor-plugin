@@ -41,7 +41,7 @@ class Tweet {
                 throw new Error(`Error en la solicitud: ${response.status}`);
             }
             const data = await response.json();
-            censura = max(data.values())
+            const censura = Math.max(...Object.values(data));
             console.log('Respuesta del servidor:', censura, this.text);
             if (censura >= 0.5) {
                 this.blur = true;

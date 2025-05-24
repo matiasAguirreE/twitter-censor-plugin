@@ -1,11 +1,11 @@
 import torch
 import numpy as np
 import pandas as pd
-from model import ToxicClassifier
-from config import *
+from .classifier import ToxicClassifier
+from .config import *
 from transformers import AutoTokenizer
 from torch.utils.data import DataLoader
-from train import TweetDataset
+from .train import TweetDataset
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 # Set device to GPU if available, otherwise CPU
