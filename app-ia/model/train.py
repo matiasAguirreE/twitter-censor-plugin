@@ -11,6 +11,13 @@ import os
 # Set device to GPU if available, otherwise CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# Prtin para ver que version de CUDA se usa
+print("Torch version:", torch.__version__)
+print("CUDA available:", torch.cuda.is_available())
+print("CUDA version (compiled):", torch.version.cuda)
+print("Device count:", torch.cuda.device_count())
+print("Device name:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No GPU")
+
 # Define the TweetDataset class for loading and processing the dataset
 class TweetDataset(Dataset):
     def __init__(self, texts, labels, tokenizer):
