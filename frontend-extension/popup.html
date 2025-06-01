@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Filtro de Twitter</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Filtro de Censura</h1>
+
+    <label class="switch">
+      <input type="checkbox" id="toggle">
+      <span class="slider round"></span>
+    </label>
+    <span id="toggle-label">Desactivado</span>
+
+    <div class="dropdown">
+      <button class="dropbtn">Configuraciones ▼</button>
+      <div class="dropdown-content">
+        <label>Violencia: <input type="range" min="0" max="100" step="10" id="violenciaRange"></label>
+        <label>Homofobia: <input type="range" min="0" max="100" step="10" id="homofobiaRange"></label>
+        <label>Xenofobia: <input type="range" min="0" max="100" step="10" id="xenofobiaRange"></label>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
