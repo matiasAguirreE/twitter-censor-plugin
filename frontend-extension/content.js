@@ -77,7 +77,7 @@ class Tweet {
         this.articleTweet = articleTweet;
         this.text = this.extractText();
         this.parentTweet = this.findParentTweet();
-        this.blur = false;
+        this.serverData = {};
     }
 
     /**
@@ -127,10 +127,7 @@ class Tweet {
                 const probabilidad = data[categoria] * 100;
                 const umbral = 100 - configuracionActual.thresholds[categoria];
                 console.log(`Probabilidad de ${categoria}: ${probabilidad}% (umbral: ${umbral}%)`);
-                if (probabilidad >= umbral) {
-                    this.blur = true;
-                    break;
-                }
+                this.serverData[categoria] = probabilidad;
             }
 
             return data;
@@ -143,9 +140,85 @@ class Tweet {
     /**
      * Aplica el efecto de desenfoque al tweet.
      */
-    applyBlur() {
-        this.articleTweet.style.filter = "blur(6px)";
-        this.articleTweet.style.transition = "filter 0.3s ease";
+    applyBlur(tweet) {
+        if (tweet.dataset.desBlur === "true") {
+            return;
+        }
+
+        let categoriasCensurables = {};
+
+        Object.keys(this.serverData).forEach(categoria => {
+            if (this.serverData[categoria] >= configuracionActual['thresholds'][categoria]) {
+                categoriasCensurables[categoria] = this.serverData[categoria];
+            }
+        });
+
+        if (Object.keys(categoriasCensurables).length != 0) {
+            tweet.style.filter = "blur(6px)";
+            tweet.style.transition = "filter 0.3s ease";
+
+            // Evita duplicar el mensaje si ya fue añadido
+            // TODO: ver como obtener el length de categorias censurables (en caso de ser distintos ahi que actualizar)
+            if (tweet.nextElementSibling?.classList.contains("blur-reason-box")) return;
+
+            // Crear contenedor del mensaje
+            const reasonBox = document.createElement("div");
+            reasonBox.className = "blur-reason-box";
+
+            // Estilo visual compatible con Twitter
+            reasonBox.style.marginTop = "8px";
+            reasonBox.style.padding = "10px 15px";
+            reasonBox.style.border = "1px solid #e1e8ed";
+            reasonBox.style.borderRadius = "12px";
+            reasonBox.style.backgroundColor = "#f7f9f9";
+            reasonBox.style.color = "#0f1419";
+            reasonBox.style.fontSize = "13px";
+            reasonBox.style.fontFamily = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+            reasonBox.style.lineHeight = "1.4";
+            reasonBox.style.textAlign = "center";
+
+            // Texto con la razón
+            let texto = "Este tweet fue ocultado por:<br>";
+
+            Object.keys(categoriasCensurables).forEach(categoria => {
+                texto += `<strong>${categoria}</strong> con probabilidad ${categoriasCensurables[categoria].toFixed(2)}%<br>`;
+            });
+            reasonBox.innerHTML = texto;
+
+            // Crear botón para desblur
+            const btnDesblur = document.createElement("button");
+            btnDesblur.textContent = "Mostrar contenido";
+            btnDesblur.style.marginTop = "10px";
+            btnDesblur.style.padding = "5px 10px";
+            btnDesblur.style.border = "none";
+            btnDesblur.style.borderRadius = "8px";
+            btnDesblur.style.backgroundColor = "#1DA1F2";
+            btnDesblur.style.color = "white";
+            btnDesblur.style.cursor = "pointer";
+            btnDesblur.style.fontSize = "13px";
+
+            // Evento click para quitar blur
+            btnDesblur.addEventListener("click", () => {
+                const isBlured = tweet.style.filter === "blur(6px)";
+                if (isBlured) {
+                    tweet.dataset.desBlur = "true";
+                    tweet.style.filter = "none";
+                    btnDesblur.style.backgroundColor = "#888";
+                    btnDesblur.textContent = "Ocultar contenido";
+                } else {
+                    tweet.dataset.desBlur = "false";
+                    tweet.style.filter = "blur(6px)";
+                    btnDesblur.style.backgroundColor = "#1DA1F2";
+                    btnDesblur.textContent = "Mostrar contenido";
+                }
+            });
+
+            // Agregar botón al contenedor
+            reasonBox.appendChild(btnDesblur);
+
+            // Insertar el contenedor después del tweet
+            tweet.insertAdjacentElement("afterend", reasonBox);
+        }
     }
 }
 
@@ -189,15 +262,13 @@ async function getOrCreateClass(tweet, texto) {
  * y aplica el desenfoque si corresponde.
  */
 async function procesarTweets() {
-    const tweets = document.querySelectorAll('article[data-testid="tweet"]:not([data-blur-processed])');
+    const tweets = document.querySelectorAll('article[data-testid="tweet"]');
 
     for (const tweet of tweets) {
         const t = await getOrCreateClass(tweet, extractText(tweet));
         if (t.create) {
             await t.tweet.verificarCensura();
-        } 
-        if (t.tweet.blur) {
-            t.tweet.applyBlur();
         }
+        t.tweet.applyBlur(tweet);
     }
 }
