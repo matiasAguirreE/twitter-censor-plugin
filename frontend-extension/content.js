@@ -38,6 +38,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "updateConfig") {
         configuracionActual = message.config;
         console.log("Nueva configuración recibida:", configuracionActual);
+        // Reiniciar el caché de tweets
+        for (const key in clasesRegistradas) delete clasesRegistradas[key];
+        // Quitar el blur de todos los tweets ya procesados
+        const tweets = document.querySelectorAll('article[data-testid="tweet"]');
+        for (const tweet of tweets) {
+            tweet.style.filter = "none";
+            tweet.removeAttribute("data-desBlur");
+
+            // Eliminar el contenedor de la razón si existe
+            const next = tweet.nextElementSibling;
+            if (next?.classList.contains("blur-reason-box")) {
+                next.remove();
+            }
+        }
+        // volver a procesar tweets
         procesarTweets();
     }
 });
@@ -107,7 +122,7 @@ class Tweet {
      */
     async verificarCensura() {
         try {
-            const response = await fetch('https://withered-glitter-3f84.ignacio-alvbah.workers.dev/verificarCensura/', {
+            const response = await fetch('https://grupo8.juan.cl/verificarCensura/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
