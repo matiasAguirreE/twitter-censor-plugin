@@ -193,11 +193,18 @@ class CoherenceAnalyzer:
     def should_apply_coherence_correction(toxicity_scores: Dict, sentiment_result: Dict) -> str:
         """
         Determine if coherence-based correction should be applied using statistical analysis
+        Now includes minimum confidence threshold check
         
         Returns:
             str: Type of coherence correction to apply, or empty string if none
         """
         if not sentiment_result:
+            return ""
+        
+        # NEW: Check minimum confidence threshold first (same as BiasCorrector)
+        sentiment_confidence = sentiment_result['confidence']
+        if sentiment_confidence < BiasCorrector.MINIMUM_CONFIDENCE_THRESHOLD:
+            logger.info(f"🚫 Coherence analysis skipped - sentiment confidence too low ({sentiment_confidence:.1%})")
             return ""
         
         # Analyze coherence and anomalies
@@ -221,205 +228,214 @@ class CoherenceAnalyzer:
 
 class BiasCorrector:
     """
-    Bias correction logic that combines toxicity detection with sentiment analysis
+    Enhanced bias corrector with confidence thresholds and negativity scaling
     """
     
-    # Thresholds for bias correction
+    # Enhanced thresholds and parameters
     HIGH_TOXICITY_THRESHOLD = 0.7
-    POSITIVE_SENTIMENT_THRESHOLD = 0.6
-    NEUTRAL_SENTIMENT_THRESHOLD = 0.65  # For neutral sentiment corrections
+    POSITIVE_SENTIMENT_THRESHOLD = 0.6    
+    NEUTRAL_SENTIMENT_THRESHOLD = 0.65    
     
-    # Adaptive correction parameters
-    BASE_CORRECTION_FACTOR = 0.4      # Increased base reduction (40%)
-    CONFIDENCE_MULTIPLIER = 1.0       # Increased multiplier for stronger corrections
-    MAX_CORRECTION_FACTOR = 0.9       # Increased maximum total reduction (90%)
-    MIN_TOXICITY_AFTER_CORRECTION = 0.05  # Lower minimum for stronger corrections
+    # NEW: Minimum confidence threshold for applying corrections
+    MINIMUM_CONFIDENCE_THRESHOLD = 0.65   # Require 65% confidence to apply correction
     
-    # Neutral sentiment correction (for demographic mentions in neutral context)
-    NEUTRAL_CORRECTION_FACTOR = 0.5   # 50% reduction for neutral demographic mentions
+    # Reduced correction factors (less aggressive)
+    BASE_CORRECTION_FACTOR = 0.25          # Reduced from 40% to 25%
+    CONFIDENCE_MULTIPLIER = 0.6            # Reduced from 1.0 to 0.6
+    MAX_CORRECTION_FACTOR = 0.7            # Reduced from 90% to 70%
+    MIN_TOXICITY_AFTER_CORRECTION = 0.1   # Increased from 5% to 10%
     
-    # Enhanced correction for very high confidence positive sentiment
+    # NEW: Negativity scaling parameters
+    NEGATIVE_SENTIMENT_SCALING = True      # Enable scaling up for negative sentiment
+    NEGATIVE_SCALING_FACTOR = 0.15         # 15% increase for confident negative sentiment
+    NEGATIVE_CONFIDENCE_THRESHOLD = 0.65   # Require 65% confidence for scaling
+    MAX_SCALING_LIMIT = 0.95               # Don't scale beyond 95%
+    
+    # Enhanced confidence thresholds
     VERY_HIGH_CONFIDENCE_THRESHOLD = 0.85
-    VERY_HIGH_CONFIDENCE_BONUS = 0.3  # Additional 30% reduction for very confident positive
+    VERY_HIGH_CONFIDENCE_BONUS = 0.2       # Reduced from 30% to 20%
+    
+    # Neutral correction
+    NEUTRAL_CORRECTION_FACTOR = 0.3        # Reduced from 50% to 30%
     
     @staticmethod
     def should_apply_correction(toxicity_scores: Dict, sentiment_result: Dict) -> bool:
         """
-        Determine if bias correction should be applied
-        
-        Args:
-            toxicity_scores: Dict with toxicity class probabilities
-            sentiment_result: Dict with sentiment analysis results
-            
-        Returns:
-            bool: True if correction should be applied
+        Enhanced logic to determine if bias correction should be applied
+        Now includes minimum confidence threshold
         """
         if not sentiment_result:
             return False
         
-        # Check if any toxicity score is high
-        max_toxicity = max(toxicity_scores.values())
-        has_high_toxicity = max_toxicity > BiasCorrector.HIGH_TOXICITY_THRESHOLD
-        
-        # Check for different correction scenarios
         sentiment_label = sentiment_result['label']
         sentiment_confidence = sentiment_result['confidence']
+        max_toxicity = max(toxicity_scores.values())
         
-        # Scenario 1: Positive sentiment (original logic)
-        is_positive_sentiment = (
-            sentiment_label == 'POS' and 
-            sentiment_confidence > BiasCorrector.POSITIVE_SENTIMENT_THRESHOLD
-        )
+        # NEW: Check minimum confidence threshold
+        if sentiment_confidence < BiasCorrector.MINIMUM_CONFIDENCE_THRESHOLD:
+            logger.info(f"🚫 Sentiment confidence too low ({sentiment_confidence:.1%}) - skipping correction")
+            return False
         
-        # Scenario 2: Neutral sentiment with high demographic toxicity
-        is_neutral_demographic = (
-            sentiment_label == 'NEU' and 
+        # Original logic for high toxicity + positive sentiment
+        if (sentiment_label == 'POS' and 
+            sentiment_confidence > BiasCorrector.POSITIVE_SENTIMENT_THRESHOLD and
+            max_toxicity > BiasCorrector.HIGH_TOXICITY_THRESHOLD):
+            return True
+        
+        # Logic for neutral sentiment with demographic mentions + high toxicity
+        if (sentiment_label == 'NEU' and 
             sentiment_confidence > BiasCorrector.NEUTRAL_SENTIMENT_THRESHOLD and
-            (toxicity_scores.get('Xenofobia', 0) > 0.5 or toxicity_scores.get('Homofobia', 0) > 0.3)
-        )
+            max_toxicity > BiasCorrector.HIGH_TOXICITY_THRESHOLD):
+            return True
         
-        # Scenario 3: Very high toxicity with any non-negative sentiment
-        is_extreme_toxicity = (
-            max_toxicity > 0.9 and 
-            sentiment_label != 'NEG'
-        )
+        # Logic for extreme cases with any non-negative sentiment
+        if (max_toxicity > 0.95 and 
+            sentiment_label in ['POS', 'NEU'] and
+            sentiment_confidence > BiasCorrector.MINIMUM_CONFIDENCE_THRESHOLD):
+            return True
         
-        return has_high_toxicity and (is_positive_sentiment or is_neutral_demographic or is_extreme_toxicity)
+        return False
     
     @staticmethod
     def apply_correction(toxicity_scores: Dict, sentiment_result: Dict) -> Dict:
         """
-        Apply adaptive bias correction to toxicity scores based on sentiment confidence
-        
-        Args:
-            toxicity_scores: Original toxicity scores
-            sentiment_result: Sentiment analysis results
-            
-        Returns:
-            Dict with corrected toxicity scores
+        Enhanced correction that includes negativity scaling
         """
         corrected_scores = toxicity_scores.copy()
         
-        if BiasCorrector.should_apply_correction(toxicity_scores, sentiment_result):
-            sentiment_label = sentiment_result['label']
-            sentiment_confidence = sentiment_result['confidence']
-            max_toxicity = max(toxicity_scores.values())
+        if not sentiment_result:
+            return corrected_scores
+        
+        sentiment_label = sentiment_result['label']
+        sentiment_confidence = sentiment_result['confidence']
+        
+        # NEW: Apply negativity scaling if enabled and conditions are met
+        if (BiasCorrector.NEGATIVE_SENTIMENT_SCALING and 
+            sentiment_label == 'NEG' and 
+            sentiment_confidence >= BiasCorrector.NEGATIVE_CONFIDENCE_THRESHOLD):
             
-            # Determine correction type and factor
-            if sentiment_label == 'POS':
-                # Positive sentiment correction (enhanced)
-                confidence_bonus = (sentiment_confidence - BiasCorrector.POSITIVE_SENTIMENT_THRESHOLD) * BiasCorrector.CONFIDENCE_MULTIPLIER
-                
-                # Extra bonus for very high confidence positive sentiment
-                if sentiment_confidence > BiasCorrector.VERY_HIGH_CONFIDENCE_THRESHOLD:
-                    confidence_bonus += BiasCorrector.VERY_HIGH_CONFIDENCE_BONUS
-                
-                # Extra aggressive correction for extreme toxicity + positive sentiment
-                if max_toxicity > 0.95 and sentiment_confidence > 0.8:
-                    confidence_bonus += 0.2  # Additional 20% for extreme cases
-                
-                total_correction_factor = min(
-                    BiasCorrector.BASE_CORRECTION_FACTOR + confidence_bonus,
-                    BiasCorrector.MAX_CORRECTION_FACTOR
-                )
-                correction_type = "positive_sentiment"
-                
-            elif sentiment_label == 'NEU':
-                # Neutral sentiment with demographic mention
-                total_correction_factor = BiasCorrector.NEUTRAL_CORRECTION_FACTOR
-                correction_type = "neutral_demographic"
-                
-            else:
-                # Extreme toxicity with non-negative sentiment
-                total_correction_factor = BiasCorrector.BASE_CORRECTION_FACTOR * 0.7  # More conservative
-                correction_type = "extreme_toxicity"
-            
-            # Apply correction to each toxicity score
+            # Scale up toxicity scores slightly for confident negative sentiment
             for label in corrected_scores:
                 original_score = corrected_scores[label]
-                
-                # Special handling for demographic categories
-                if label in ['Xenofobia', 'Homofobia'] and sentiment_label in ['POS', 'NEU']:
-                    # More aggressive correction for demographic bias
-                    enhanced_factor = min(total_correction_factor * 1.2, 0.95)
-                    corrected_score = original_score * (1 - enhanced_factor)
-                else:
-                    # Standard correction
-                    corrected_score = original_score * (1 - total_correction_factor)
-                
-                # Ensure minimum toxicity threshold
-                corrected_scores[label] = max(corrected_score, BiasCorrector.MIN_TOXICITY_AFTER_CORRECTION)
+                scaled_score = original_score * (1 + BiasCorrector.NEGATIVE_SCALING_FACTOR)
+                # Apply scaling limit
+                corrected_scores[label] = min(scaled_score, BiasCorrector.MAX_SCALING_LIMIT)
             
-            logger.info(f"🔧 Applied {correction_type} correction - sentiment: {sentiment_label} "
-                       f"(confidence: {sentiment_confidence:.3f}, correction factor: {total_correction_factor:.3f})")
+            logger.info(f"📈 Applied negativity scaling (+{BiasCorrector.NEGATIVE_SCALING_FACTOR:.1%}) for confident negative sentiment")
+            return corrected_scores
+        
+        # Apply standard bias correction if conditions are met
+        if BiasCorrector.should_apply_correction(toxicity_scores, sentiment_result):
+            correction_factor = BiasCorrector.calculate_correction_factor(sentiment_result)
+            
+            for label in corrected_scores:
+                original_score = corrected_scores[label]
+                reduced_score = original_score * (1 - correction_factor)
+                corrected_scores[label] = max(reduced_score, BiasCorrector.MIN_TOXICITY_AFTER_CORRECTION)
+            
+            logger.info(f"🔧 Applied bias correction (factor: {correction_factor:.1%}) for {sentiment_label} sentiment")
         
         return corrected_scores
     
     @staticmethod
     def calculate_correction_factor(sentiment_result: Dict) -> float:
         """
-        Calculate the correction factor that would be applied
-        
-        Args:
-            sentiment_result: Sentiment analysis results
-            
-        Returns:
-            float: Correction factor (0.0 to MAX_CORRECTION_FACTOR)
+        Calculate the adaptive correction factor with reduced aggressiveness
         """
-        if not sentiment_result or sentiment_result['label'] != 'POS':
+        if not sentiment_result:
             return 0.0
         
+        sentiment_label = sentiment_result['label']
         sentiment_confidence = sentiment_result['confidence']
         
-        if sentiment_confidence <= BiasCorrector.POSITIVE_SENTIMENT_THRESHOLD:
+        # Check minimum confidence threshold first
+        if sentiment_confidence < BiasCorrector.MINIMUM_CONFIDENCE_THRESHOLD:
             return 0.0
         
-        # Calculate adaptive correction factor
-        confidence_bonus = (sentiment_confidence - BiasCorrector.POSITIVE_SENTIMENT_THRESHOLD) * BiasCorrector.CONFIDENCE_MULTIPLIER
-        total_correction_factor = min(
-            BiasCorrector.BASE_CORRECTION_FACTOR + confidence_bonus,
-            BiasCorrector.MAX_CORRECTION_FACTOR
-        )
+        # Calculate base correction factor
+        if sentiment_label == 'POS' and sentiment_confidence > BiasCorrector.POSITIVE_SENTIMENT_THRESHOLD:
+            # Base correction
+            base_factor = BiasCorrector.BASE_CORRECTION_FACTOR
+            
+            # Confidence bonus (reduced)
+            confidence_bonus = (sentiment_confidence - BiasCorrector.POSITIVE_SENTIMENT_THRESHOLD) * BiasCorrector.CONFIDENCE_MULTIPLIER
+            
+            # Very high confidence bonus (reduced)
+            high_confidence_bonus = 0.0
+            if sentiment_confidence > BiasCorrector.VERY_HIGH_CONFIDENCE_THRESHOLD:
+                high_confidence_bonus = BiasCorrector.VERY_HIGH_CONFIDENCE_BONUS
+            
+            # Calculate total factor with maximum limit
+            total_factor = min(
+                base_factor + confidence_bonus + high_confidence_bonus,
+                BiasCorrector.MAX_CORRECTION_FACTOR
+            )
+            
+            return total_factor
+            
+        elif sentiment_label == 'NEU' and sentiment_confidence > BiasCorrector.NEUTRAL_SENTIMENT_THRESHOLD:
+            # Neutral sentiment correction (reduced)
+            return BiasCorrector.NEUTRAL_CORRECTION_FACTOR
         
-        return total_correction_factor
+        return 0.0
     
     @staticmethod
     def get_bias_flags(toxicity_scores: Dict, sentiment_result: Dict) -> Dict:
         """
-        Get bias detection flags for analysis
-        
-        Args:
-            toxicity_scores: Toxicity prediction scores
-            sentiment_result: Sentiment analysis results
-            
-        Returns:
-            Dict with bias analysis flags
+        Enhanced bias detection flags with confidence thresholds
         """
-        flags = {
-            'potential_bias_detected': False,
-            'high_toxicity_positive_sentiment': False,
-            'sentiment_toxicity_mismatch': False,
-            'correction_applied': False
-        }
-        
         if not sentiment_result:
-            return flags
+            return {
+                'potential_bias_detected': False,
+                'high_toxicity_positive_sentiment': False,
+                'sentiment_toxicity_mismatch': False,
+                'correction_applied': False,
+                'confidence_too_low': False
+            }
         
+        sentiment_label = sentiment_result['label']
+        sentiment_confidence = sentiment_result['confidence']
         max_toxicity = max(toxicity_scores.values())
         
-        # Check for potential bias patterns
-        if max_toxicity > BiasCorrector.HIGH_TOXICITY_THRESHOLD:
-            if sentiment_result['label'] == 'POS':
-                flags['high_toxicity_positive_sentiment'] = True
-                flags['potential_bias_detected'] = True
-            elif sentiment_result['label'] == 'NEU' and sentiment_result['confidence'] > 0.5:
-                flags['sentiment_toxicity_mismatch'] = True
-                flags['potential_bias_detected'] = True
+        # Check confidence threshold
+        confidence_too_low = sentiment_confidence < BiasCorrector.MINIMUM_CONFIDENCE_THRESHOLD
         
-        # Check if correction was applied
-        flags['correction_applied'] = BiasCorrector.should_apply_correction(toxicity_scores, sentiment_result)
+        # Enhanced bias detection
+        high_toxicity_positive_sentiment = (
+            sentiment_label == 'POS' and 
+            sentiment_confidence > BiasCorrector.POSITIVE_SENTIMENT_THRESHOLD and
+            max_toxicity > BiasCorrector.HIGH_TOXICITY_THRESHOLD
+        )
         
-        return flags
+        sentiment_toxicity_mismatch = (
+            (sentiment_label == 'POS' and max_toxicity > 0.5) or
+            (sentiment_label == 'NEU' and max_toxicity > 0.6)
+        )
+        
+        potential_bias_detected = (
+            high_toxicity_positive_sentiment or 
+            (sentiment_label == 'NEU' and max_toxicity > BiasCorrector.HIGH_TOXICITY_THRESHOLD)
+        ) and not confidence_too_low
+        
+        correction_applied = BiasCorrector.should_apply_correction(toxicity_scores, sentiment_result)
+        
+        # Check for negativity scaling
+        negativity_scaled = (
+            BiasCorrector.NEGATIVE_SENTIMENT_SCALING and
+            sentiment_label == 'NEG' and
+            sentiment_confidence >= BiasCorrector.NEGATIVE_CONFIDENCE_THRESHOLD
+        )
+        
+        return {
+            'potential_bias_detected': potential_bias_detected,
+            'high_toxicity_positive_sentiment': high_toxicity_positive_sentiment,
+            'sentiment_toxicity_mismatch': sentiment_toxicity_mismatch,
+            'correction_applied': correction_applied,
+            'confidence_too_low': confidence_too_low,
+            'negativity_scaled': negativity_scaled,
+            'sentiment_confidence': sentiment_confidence,
+            'min_confidence_threshold': BiasCorrector.MINIMUM_CONFIDENCE_THRESHOLD
+        }
 
 # Global sentiment analyzer instance
 _sentiment_analyzer = None
