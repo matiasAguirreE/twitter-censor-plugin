@@ -2,27 +2,56 @@
 from app import app
 import torch
 import json
-from utils import verificarCensura_, verificarCensura_old, verificarCensura_new
+from functools import wraps
+from collections import OrderedDict
 from flask import Flask, jsonify, request
 from transformers import AutoTokenizer
-from model.predict_old import load_old_model
-from model.predict_new import load_new_model
 
-# Load OLD model
+# Local imports
+from model import predict_old, predict_new, sentiment_analyzer
+from utils import compare_predictions
+
+# --- Model and Analyzer Initialization ---
+
 print("Loading OLD model...")
-old_model, old_tokenizer, old_device = load_old_model()
-if old_model is not None:
-    print("✓ OLD model loaded successfully")
-else:
-    print("✗ Failed to load OLD model")
+old_model, old_tokenizer, old_device = predict_old.load_old_model()
+old_model_available = old_model is not None
+print(f"✓ OLD model loaded: {old_model_available}")
 
-# Load NEW model
 print("Loading NEW model...")
-new_model, new_tokenizer, new_device = load_new_model()
-if new_model is not None:
-    print("✓ NEW model loaded successfully")
-else:
-    print("✗ Failed to load NEW model (this is expected if not trained yet)")
+new_model, new_tokenizer, new_device = predict_new.load_new_model()
+new_model_available = new_model is not None
+print(f"✓ NEW model loaded: {new_model_available}")
+
+print("Initializing Sentiment Analyzer...")
+sa = sentiment_analyzer.get_sentiment_analyzer()
+sentiment_analyzer_available = sa.is_available()
+print(f"✓ Sentiment analyzer initialized: {sentiment_analyzer_available}")
+
+# --- Decorators for Security ---
+
+def require_api_key(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        api_key = request.headers.get('X-Api-Key')
+        if not api_key or api_key != 'e55d7f49-a705-4895-bf5f-d63aa1f46e11':
+            return jsonify({"error": "Unauthorized: Invalid or missing API key"}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+# --- API Endpoints ---
+
+@app.route('/status/', methods=['GET'])
+def status():
+    """Endpoint to check which models and analyzers are available."""
+    return jsonify({
+        'old_model_available': old_model_available,
+        'new_model_available': new_model_available,
+        'sentiment_analyzer_available': sentiment_analyzer_available,
+        'total_models_loaded': sum([old_model_available, new_model_available])
+    })
+
+# --- Legacy Endpoint for Backward Compatibility ---
 
 @app.route('/verificarCensura/', methods=['POST'])
 def verificarCensura():
@@ -31,153 +60,214 @@ def verificarCensura():
     if api_key != 'e55d7f49-a705-4895-bf5f-d63aa1f46e11':
         return jsonify({'error': 'No autorizado'}), 401
 
-    if old_model is None:
+    if not old_model_available:
         return jsonify({'error': 'Modelo viejo no disponible'}), 500
 
     tweet = request.json
     print("se recibe: {}".format(tweet))
     texto = tweet['texto']
-    censura = verificarCensura_old(texto, old_model, old_device, old_tokenizer)
+    censura = predict_old.predict_old(texto, old_model, old_device, old_tokenizer)
     print("se envia: {}".format(censura))
     return censura
 
+# --- Basic Toxicity Endpoints ---
+
 @app.route('/verificarCensura/old/', methods=['POST'])
-def verificarCensura_old_endpoint():
-    """Endpoint for OLD model predictions - maintains same format as original"""
-    api_key = request.headers.get('X-Api-Key')
-    if api_key != 'e55d7f49-a705-4895-bf5f-d63aa1f46e11':
-        return jsonify({'error': 'No autorizado'}), 401
-
-    if old_model is None:
-        return jsonify({'error': 'Modelo viejo no disponible'}), 500
-
-    tweet = request.json
-    print("OLD MODEL - se recibe: {}".format(tweet))
-    texto = tweet['texto']
-    censura = verificarCensura_old(texto, old_model, old_device, old_tokenizer)
-    print("OLD MODEL - se envia: {}".format(censura))
-    return censura
+@require_api_key
+def verify_censorship_old():
+    """Endpoint for OLD model predictions."""
+    data = request.get_json()
+    text = data.get('text', '') or data.get('texto', '')  # Support both formats
+    if not text:
+        return jsonify({"error": "Text is required"}), 400
+    
+    if not old_model_available:
+        return jsonify({"error": "Old model is not available"}), 503
+    
+    prediction = predict_old.predict_old(text, old_model, old_device, old_tokenizer)
+    return jsonify(prediction)
 
 @app.route('/verificarCensura/new/', methods=['POST'])
-def verificarCensura_new_endpoint():
-    """Endpoint for NEW model predictions - maintains same format as original"""
-    api_key = request.headers.get('X-Api-Key')
-    if api_key != 'e55d7f49-a705-4895-bf5f-d63aa1f46e11':
-        return jsonify({'error': 'No autorizado'}), 401
-
-    if new_model is None:
-        return jsonify({'error': 'Modelo nuevo no disponible'}), 500
-
-    tweet = request.json
-    print("NEW MODEL - se recibe: {}".format(tweet))
-    texto = tweet['texto']
-    censura = verificarCensura_new(texto, new_model, new_device, new_tokenizer)
-    print("NEW MODEL - se envia: {}".format(censura))
-    return censura
+@require_api_key
+def verify_censorship_new():
+    """Endpoint for NEW model predictions."""
+    data = request.get_json()
+    text = data.get('text', '') or data.get('texto', '')  # Support both formats
+    if not text:
+        return jsonify({"error": "Text is required"}), 400
+    
+    if not new_model_available:
+        return jsonify({"error": "New model is not available"}), 503
+    
+    prediction = predict_new.predict_new(text, new_model, new_device, new_tokenizer)
+    return jsonify(prediction)
 
 @app.route('/verificarCensura/compare/', methods=['POST'])
-def verificarCensura_compare():
-    """Endpoint to compare predictions from both models"""
-    api_key = request.headers.get('X-Api-Key')
-    if api_key != 'e55d7f49-a705-4895-bf5f-d63aa1f46e11':
-        return jsonify({'error': 'No autorizado'}), 401
+@require_api_key
+def compare_censorship():
+    """Endpoint to compare raw predictions from both models."""
+    data = request.get_json()
+    text = data.get('text', '') or data.get('texto', '')  # Support both formats
+    if not text:
+        return jsonify({"error": "Text is required"}), 400
 
-    tweet = request.json
-    print("COMPARE - se recibe: {}".format(tweet))
-    texto = tweet['texto']
-    
-    result = {
-        'text': texto,
-        'old_model': None,
-        'new_model': None,
-        'comparison': None
-    }
+    # Old model
+    old_model_response = {"available": False, "prediction": {}}
+    if old_model_available:
+        old_prediction = predict_old.predict_old(text, old_model, old_device, old_tokenizer)
+        old_model_response = {"available": True, "prediction": old_prediction}
 
-    # Get prediction from OLD model
-    if old_model is not None:
-        try:
-            old_prediction = verificarCensura_old(texto, old_model, old_device, old_tokenizer)
-            result['old_model'] = {
-                'available': True,
-                'prediction': old_prediction
-            }
-        except Exception as e:
-            result['old_model'] = {
-                'available': False,
-                'error': str(e)
-            }
-    else:
-        result['old_model'] = {
-            'available': False,
-            'error': 'Modelo no cargado'
-        }
-
-    # Get prediction from NEW model
-    if new_model is not None:
-        try:
-            new_prediction = verificarCensura_new(texto, new_model, new_device, new_tokenizer)
-            result['new_model'] = {
-                'available': True,
-                'prediction': new_prediction
-            }
-        except Exception as e:
-            result['new_model'] = {
-                'available': False,
-                'error': str(e)
-            }
-    else:
-        result['new_model'] = {
-            'available': False,
-            'error': 'Modelo no cargado'
-        }
-
-    # Add comparison if both models are available
-    if result['old_model']['available'] and result['new_model']['available']:
-        old_pred = result['old_model']['prediction']
-        new_pred = result['new_model']['prediction']
+    # New model
+    new_model_response = {"available": False, "prediction": {}}
+    if new_model_available:
+        new_prediction = predict_new.predict_new(text, new_model, new_device, new_tokenizer)
+        new_model_response = {"available": True, "prediction": new_prediction}
         
-        comparison = {}
-        for label in old_pred.keys():
-            old_val = old_pred[label]
-            new_val = new_pred[label]
-            comparison[label] = {
-                'old': old_val,
-                'new': new_val,
-                'difference': new_val - old_val,
-                'percent_change': ((new_val - old_val) / max(old_val, 0.001)) * 100
-            }
-        
-        result['comparison'] = comparison
-
-    print("COMPARE - se envia: {}".format(result))
-    # Return with better formatting for readability
-    response = app.response_class(
-        response=json.dumps(result, indent=2, ensure_ascii=False),
-        status=200,
-        mimetype='application/json'
+    comparison = compare_predictions(
+        old_model_response.get('prediction', {}), 
+        new_model_response.get('prediction', {})
     )
-    return response
-
-@app.route('/status/', methods=['GET'])
-def status():
-    """Endpoint to check which models are available"""
+    
     return jsonify({
-        'old_model_available': old_model is not None,
-        'new_model_available': new_model is not None,
-        'total_models_loaded': sum([old_model is not None, new_model is not None])
+        "text": text,
+        "old_model_raw": old_model_response,
+        "new_model_raw": new_model_response,
+        "comparison": comparison
     })
 
+# --- Endpoints with Sentiment Analysis (SA) Correction ---
+
+@app.route('/verificarCensura/old/sa/', methods=['POST'])
+@require_api_key
+def verify_censorship_old_sa():
+    """Endpoint for old model with sentiment analysis correction."""
+    data = request.get_json()
+    text = data.get('text', '') or data.get('texto', '')  # Support both formats
+    if not text:
+        return jsonify({"error": "Text is required"}), 400
+    
+    if not old_model_available or not sentiment_analyzer_available:
+        return jsonify({"error": "Required model or analyzer is not available"}), 503
+
+    original_scores = predict_old.predict_old(text, old_model, old_device, old_tokenizer)
+    enhanced_analysis = sentiment_analyzer.analyze_with_sentiment_correction(text, original_scores)
+    
+    return jsonify(enhanced_analysis['corrected_toxicity'])
+
+@app.route('/verificarCensura/new/sa/', methods=['POST'])
+@require_api_key
+def verify_censorship_new_sa():
+    """Endpoint for new model with sentiment analysis correction."""
+    data = request.get_json()
+    text = data.get('text', '') or data.get('texto', '')  # Support both formats
+    if not text:
+        return jsonify({"error": "Text is required"}), 400
+    
+    if not new_model_available or not sentiment_analyzer_available:
+        return jsonify({"error": "Required model or analyzer is not available"}), 503
+        
+    original_scores = predict_new.predict_new(text, new_model, new_device, new_tokenizer)
+    enhanced_analysis = sentiment_analyzer.analyze_with_sentiment_correction(text, original_scores)
+    
+    return jsonify(enhanced_analysis['corrected_toxicity'])
+
+@app.route('/verificarCensura/compare/sa/', methods=['POST'])
+@require_api_key
+def compare_censorship_sa():
+    """Endpoint to compare NEW model with and without sentiment analysis correction."""
+    data = request.get_json()
+    text = data.get('text', '') or data.get('texto', '')  # Support both formats
+    if not text:
+        return jsonify({"error": "Text is required"}), 400
+
+    if not new_model_available:
+        return jsonify({"error": "New model is not available"}), 503
+
+    if not sentiment_analyzer_available:
+        return jsonify({"error": "Sentiment analyzer is not available"}), 503
+
+    # NEW model WITHOUT SA (original scores)
+    new_original = predict_new.predict_new(text, new_model, new_device, new_tokenizer)
+    new_without_sa_response = {"available": True, "prediction": new_original}
+
+    # NEW model WITH SA (corrected scores)
+    new_corrected = sentiment_analyzer.analyze_with_sentiment_correction(text, new_original)['corrected_toxicity']
+    new_with_sa_response = {"available": True, "prediction": new_corrected}
+        
+    comparison = compare_predictions(
+        new_without_sa_response.get('prediction', {}), 
+        new_with_sa_response.get('prediction', {})
+    )
+    
+    # Use OrderedDict to ensure consistent field ordering
+    response_data = OrderedDict([
+        ("text", text),
+        ("new_model_without_sa", new_without_sa_response),
+        ("new_model_with_sa", new_with_sa_response),
+        ("comparison_sa_impact", comparison)
+    ])
+    
+    return jsonify(response_data)
+
+# --- Standalone Sentiment Analysis Endpoint ---
+
+@app.route('/sentiment/', methods=['POST'])
+@require_api_key
+def sentiment_analysis_endpoint():
+    """Endpoint for sentiment analysis only."""
+    data = request.get_json()
+    text = data.get('text', '') or data.get('texto', '')  # Support both formats
+    if not text:
+        return jsonify({"error": "Text is required"}), 400
+    
+    if not sentiment_analyzer_available:
+        return jsonify({"error": "Sentiment analyzer is not available"}), 503
+        
+    sentiment_result = sa.predict_sentiment(text)
+    return jsonify({"text": text, "sentiment": sentiment_result})
+
+# --- Legacy Enhanced Endpoints (kept for compatibility) ---
+
+@app.route('/verificarCensura/enhanced/', methods=['POST'])
+@require_api_key
+def verify_censorship_enhanced_auto():
+    """
+    Enhanced endpoint with sentiment analysis and bias correction.
+    Uses NEW model by default, falls back to OLD model if available.
+    Returns detailed analysis object.
+    """
+    data = request.get_json()
+    text = data.get('text', '') or data.get('texto', '')  # Support both formats
+    if not text:
+        return jsonify({"error": "Text is required"}), 400
+        
+    if not sentiment_analyzer_available:
+        return jsonify({"error": "Sentiment analyzer is not available"}), 503
+    
+    analysis = None
+    model_used = None
+    if new_model_available:
+        original_scores = predict_new.predict_new(text, new_model, new_device, new_tokenizer)
+        analysis = sentiment_analyzer.analyze_with_sentiment_correction(text, original_scores)
+        model_used = "new"
+    elif old_model_available:
+        original_scores = predict_old.predict_old(text, old_model, old_device, old_tokenizer)
+        analysis = sentiment_analyzer.analyze_with_sentiment_correction(text, original_scores)
+        model_used = "old"
+    else:
+        return jsonify({'error': 'No models available'}), 503
+    
+    analysis['model_used'] = model_used
+    analysis['text'] = text
+    
+    return jsonify(analysis)
+
+
 if __name__ == "__main__":
-    print(f"\n🚀 Server starting...")
-    print(f"📊 Models status:")
-    print(f"   - OLD model: {'✓ Available' if old_model is not None else '✗ Not available'}")
-    print(f"   - NEW model: {'✓ Available' if new_model is not None else '✗ Not available'}")
-    print(f"\n🌐 Available endpoints:")
-    print(f"   - POST /verificarCensura/ (backward compatibility - uses old model)")
-    print(f"   - POST /verificarCensura/old/ (old model)")
-    print(f"   - POST /verificarCensura/new/ (new model)")
-    print(f"   - POST /verificarCensura/compare/ (compare both models)")
-    print(f"   - GET  /status/ (check models availability)")
-    print(f"\n🔑 All endpoints require X-Api-Key header")
-    print(f"📡 Server running on port 7021")
-    app.run(port=7021)
+    print("\n🚀 Server starting...")
+    print(f"   - OLD model: {'✓ Available' if old_model_available else '✗ Not available'}")
+    print(f"   - NEW model: {'✓ Available' if new_model_available else '✗ Not available'}")
+    print(f"   - Sentiment analyzer: {'✓ Available' if sentiment_analyzer_available else '✗ Not available'}")
+    
+    print("\n🌐 API Endpoints Ready")
+    app.run(host='0.0.0.0', port=7021)

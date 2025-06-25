@@ -180,3 +180,4 @@ artifacts/
 
 test_api.py
 test_mps.py
+test_sentiment_api.py
