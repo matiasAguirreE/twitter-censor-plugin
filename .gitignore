@@ -175,3 +175,8 @@ cython_debug/
 
 # Ignore artifacts files
 artifacts/
+
+.DS_Store
+
+test_api.py
+test_mps.py
