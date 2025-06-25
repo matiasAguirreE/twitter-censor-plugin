@@ -55,20 +55,67 @@ def status():
 
 @app.route('/verificarCensura/', methods=['POST'])
 def verificarCensura():
-    """Original endpoint using OLD model for backward compatibility"""
+    """Legacy endpoint now using NEW model with optional sentiment analysis"""
     api_key = request.headers.get('X-Api-Key')
     if api_key != 'e55d7f49-a705-4895-bf5f-d63aa1f46e11':
         return jsonify({'error': 'No autorizado'}), 401
 
-    if not old_model_available:
-        return jsonify({'error': 'Modelo viejo no disponible'}), 500
-
     tweet = request.json
     print("se recibe: {}".format(tweet))
+    
     texto = tweet['texto']
-    censura = predict_old.predict_old(texto, old_model, old_device, old_tokenizer)
-    print("se envia: {}".format(censura))
-    return censura
+    
+    # Check for optional sentiment analysis parameter (default: False)
+    apply_sa = tweet.get('sa', False)
+    
+    if apply_sa:
+        # Use NEW model with sentiment analysis correction
+        if not new_model_available:
+            return jsonify({'error': 'Modelo nuevo no disponible'}), 500
+        
+        if not sentiment_analyzer_available:
+            return jsonify({'error': 'Analizador de sentimiento no disponible'}), 500
+        
+        # Get original scores from NEW model
+        original_scores = predict_new.predict_new(texto, new_model, new_device, new_tokenizer)
+        
+        # Apply sentiment analysis and correction
+        enhanced_analysis = sentiment_analyzer.analyze_with_sentiment_correction(texto, original_scores)
+        
+        # Get corrected toxicity scores
+        corrected_scores = enhanced_analysis['corrected_toxicity']
+        
+        # Get sentiment information
+        sentiment_info = enhanced_analysis.get('sentiment_analysis', {})
+        
+        # Build response in the requested format with specific order
+        response = OrderedDict([
+            ('Homofobia', corrected_scores.get('Homofobia', 0)),
+            ('Violencia', corrected_scores.get('Violencia', 0)),
+            ('Xenofobia', corrected_scores.get('Xenofobia', 0)),
+            ('Sentiment', sentiment_info.get('label', 'Unknown')),
+            ('Sentiment_prob', sentiment_info.get('confidence', 0))
+        ])
+        
+        print("se envia (con SA): {}".format(response))
+        
+        # Use custom response to preserve field order
+        response_json = json.dumps(response, ensure_ascii=False)
+        flask_response = app.response_class(
+            response=response_json,
+            status=200,
+            mimetype='application/json'
+        )
+        return flask_response
+    
+    else:
+        # Standard behavior: use NEW model without sentiment analysis
+        if not new_model_available:
+            return jsonify({'error': 'Modelo nuevo no disponible'}), 500
+        
+        censura = predict_new.predict_new(texto, new_model, new_device, new_tokenizer)
+        print("se envia: {}".format(censura))
+        return jsonify(censura)
 
 # --- Basic Toxicity Endpoints ---
 
