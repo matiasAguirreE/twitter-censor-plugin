@@ -18,12 +18,29 @@
     <div class="dropdown">
       <button class="dropbtn">Configuraciones ▼</button>
       <div class="dropdown-content">
-        <label><span>Violencia:</span><input type="range" min="0" max="100" step="10" id="violenciaRange"></label>
-        <label><span>Homofobia:</span><input type="range" min="0" max="100" step="10" id="homofobiaRange"></label>
-        <label><span>Xenofobia:</span><input type="range" min="0" max="100" step="10" id="xenofobiaRange"></label>
+        <div class="dropdown-title"><strong>Nivel de censura</strong></div>
+        <!-- Bloque: Violencia -->
+        <div class="config-block">
+          <strong>Violencia</strong>
+          <input type="range" min="0" max="100" step="5" id="violenciaRange">
+          <div class="porcentaje" id="violenciaOutput">50%</div>
+        </div>
+
+        <!-- Bloque: Homofobia -->
+        <div class="config-block">
+          <strong>Homofobia</strong>
+          <input type="range" min="0" max="100" step="5" id="homofobiaRange">
+          <div class="porcentaje" id="homofobiaOutput">50%</div>
+        </div>
+
+        <!-- Bloque: Xenofobia -->
+        <div class="config-block">
+          <strong>Xenofobia</strong>
+          <input type="range" min="0" max="100" step="5" id="xenofobiaRange">
+          <div class="porcentaje" id="xenofobiaOutput">50%</div>
+        </div>
       </div>
     </div>
-  </div>
 
   <script src="popup.js"></script>
 </body>

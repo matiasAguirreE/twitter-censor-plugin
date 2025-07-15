@@ -5,10 +5,10 @@ from .config import MODEL_NAME, NUM_LABELS
 
 # Define the ToxicClassifier model
 class ToxicClassifier(nn.Module):
-    def __init__(self):
+    def __init__(self, dropout=0.3):
         super(ToxicClassifier, self).__init__()
         self.bert = AutoModel.from_pretrained(MODEL_NAME)
-        self.dropout = nn.Dropout(0.3)
+        self.dropout = nn.Dropout(dropout)
         self.classifier = nn.Linear(self.bert.config.hidden_size, NUM_LABELS)
 
     def forward(self, input_ids, attention_mask):

@@ -12,11 +12,17 @@
 const toggle = document.getElementById("toggle"); // Checkbox para activar/desactivar el filtro
 const toggleLabel = document.getElementById("toggle-label"); // Etiqueta que muestra el estado
 
-// Referencias a los sliders de umbral para cada categoría
+// Referencias a los sliders y sus outputs para cada categoría
+const categories = ['Violencia', 'Homofobia', 'Xenofobia'];
 const ranges = {
   Violencia: document.getElementById("violenciaRange"),
   Homofobia: document.getElementById("homofobiaRange"),
   Xenofobia: document.getElementById("xenofobiaRange")
+};
+const outputs = {
+  Violencia: document.getElementById("violenciaOutput"),
+  Homofobia: document.getElementById("homofobiaOutput"),
+  Xenofobia: document.getElementById("xenofobiaOutput")
 };
 
 /**
@@ -33,14 +39,43 @@ function guardarConfiguracion(config) {
   });
 }
 
+/**
+ * Actualiza el texto del <output> asociado según el valor normal.
+ */
+function actualizarOutput(cat, value) {
+  outputs[cat].textContent = value + "%";
+}
+
+/**
+ * Lee los valores actuales de la UI y guarda la configuración.
+ * Convierte el valor de cada slider a su valor invertido (100 - slider.value)
+ */
+function actualizarConfig() {
+  const thresholds = {};
+  for (const cat of categories) {
+    const sliderVal = parseInt(ranges[cat].value);
+    thresholds[cat] = 100 - sliderVal; // invertimos el valor
+  }
+  guardarConfiguracion({
+    enabled: toggle.checked,
+    thresholds
+  });
+}
+
 // Al abrir el popup, carga la configuración guardada y actualiza la UI
 chrome.storage.local.get(["enabled", "thresholds"], (data) => {
+  // Si no hay configuración, se usa true por defecto.
   toggle.checked = data.enabled ?? true;
   toggleLabel.textContent = toggle.checked ? "Activado" : "Desactivado";
 
   const thresholds = data.thresholds || {};
-  for (const cat in ranges) {
-    ranges[cat].value = thresholds[cat] ?? 50;
+  // Para cada categoría se carga el slider. Dado que el valor almacenado es invertido,
+  // se asigna el valor del slider como (100 - threshold almacenado), o 50 si no existe.
+  for (const cat of categories) {
+    const storedThreshold = thresholds[cat] ?? 50;
+    const sliderVal = 100 - storedThreshold;
+    ranges[cat].value = sliderVal;
+    actualizarOutput(cat, sliderVal);
   }
 });
 
@@ -51,20 +86,10 @@ toggle.addEventListener("change", () => {
 });
 
 // Evento: cambio en los sliders de umbral
-for (const cat in ranges) {
-  ranges[cat].addEventListener("input", actualizarConfig);
-}
-
-/**
- * Lee los valores actuales de la UI y guarda la configuración.
- */
-function actualizarConfig() {
-  const thresholds = {};
-  for (const cat in ranges) {
-    thresholds[cat] = parseInt(ranges[cat].value);
-  }
-  guardarConfiguracion({
-    enabled: toggle.checked,
-    thresholds
+for (const cat of categories) {
+  ranges[cat].addEventListener("input", (e) => {
+    // Actualizamos el output en tiempo real cuando se mueve el slider
+    actualizarOutput(cat, e.target.value);
+    actualizarConfig();
   });
 }
