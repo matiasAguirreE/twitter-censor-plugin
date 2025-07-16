@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import pandas as pd
-from sklearn.metrics import f1_score, precision_score,recall_score
+from sklearn.metrics import f1_score, precision_score,recall_score,accuracy_score
 import gc
 
 
@@ -37,15 +37,17 @@ def Evaluacion(model,valLoader,criterion,device):
             f1=f1_score(etiquetas[:,i],predicciones[:,i],zero_division=0)
             precision=precision_score(etiquetas[:,i],predicciones[:,i],zero_division=0)
             recall=recall_score(etiquetas[:,i],predicciones[:,i],zero_division=0)
-        metricasClases[etiqueta]={"f1":f1,"precision":precision,"recall":recall}
+            accuracy=accuracy_score(etiquetas[:,i],predicciones[:,i])
+        metricasClases[etiqueta]={"f1":f1,"precision":precision,"recall":recall,"accuracy":accuracy}
         print(f"{etiqueta}: F1={f1:.4f}, Precision={precision:.4f}, Recall={recall:.4f}")
     f1Macro=f1_score(etiquetas,predicciones,average="macro",zero_division=0)
     f1Micro=f1_score(etiquetas,predicciones,average="micro",zero_division=0)
     promedioPrecision=precision_score(etiquetas,predicciones,average="macro",zero_division=0)
     promedioRecall=recall_score(etiquetas,predicciones,average="macro",zero_division=0)
+    promedioAccuracy=accuracy_score(etiquetas,predicciones)
     
     del prediccionesNP,etiquetasNp,predicciones,etiquetas
     gc.collect()
     torch.cuda.empty_cache()
-    diccionarioResultados={"perdidaEvaluacion":sum(perdidas)/len(perdidas),"f1Macro":f1Macro,"f1Micro":f1Micro,"promedioPrecision":promedioPrecision,"promedioRecall":promedioRecall,"metricasClases":metricasClases}
+    diccionarioResultados={"perdidaEvaluacion":sum(perdidas)/len(perdidas),"f1Macro":f1Macro,"f1Micro":f1Micro,"promedioPrecision":promedioPrecision,"promedioRecall":promedioRecall,"promedioAccuracy":promedioAccuracy,"metricasClases":metricasClases}
     return diccionarioResultados

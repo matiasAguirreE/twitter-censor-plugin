@@ -16,21 +16,33 @@ from Dataset import TweetDataset
 import gc
 import random
 
-EPOCHS=[3,4,6]
-LEARNING_RATES=[2e-5,3.5e-5,5e-5,6e-5]
-BATCH_SIZES=[8,16,32]
-WARMUP_RATIOS=[0.1,0.2,0.3]
-WEIGHT_DECAYS=[0.005,0.01,0.015] 
-
-
+EPOCHS=[4,5]
+LEARNING_RATES=[5e-5,6e-5]
+BATCH_SIZES=[16,32]
+WARMUP_RATIOS=[0.1,0.3]
+WEIGHT_DECAYS=[0.01,0.015] 
 semilla=42
+random.seed(semilla)
+combinaciones=[(4, 6e-05, 32, 0.3, 0.015), (4, 6e-05, 16, 0.1, 0.01), 
+                (4, 5e-05, 16, 0.1, 0.01), (4, 6e-05, 32, 0.3, 0.015)]
+
+todas=list(itertools.product(EPOCHS,LEARNING_RATES,BATCH_SIZES,WARMUP_RATIOS,WEIGHT_DECAYS))
+
+noUsadas=[c for c in todas if c not in combinaciones]
+    
+
+for i in range(10):
+    if len(todas)==0:
+        break
+    indice=random.randint(0,len(noUsadas)-1)
+    combinaciones.append(noUsadas.pop(indice))
+print("Estas son las combinaciones de hiperparametros con las que se entrenara el modelo\n",combinaciones)
 g=torch.Generator()
 g.manual_seed(semilla)
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
-random.seed(semilla)
 np.random.seed(semilla)
 torch.manual_seed(semilla)
 torch.use_deterministic_algorithms(True)
@@ -48,24 +60,28 @@ print("CUDA version (compiled):", torch.version.cuda)
 print("Device count:", torch.cuda.device_count())
 print("Device name:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No GPU")
 
-df=pd.read_csv("tweets_limpios.csv")
-X=df["Tweet"]
-y=df[["Violencia", "Homofobia", "Xenofobia"]]
+dfTrain=pd.read_csv("data_train.csv")
+XEntrenamiento=dfTrain["Tweet"]
+yEntrenamiento=dfTrain[["Violencia", "Homofobia", "Xenofobia"]]
+
+dfValTest=pd.read_csv("data_test.csv")
+XValTest=dfValTest["Tweet"]
+yValTest=dfValTest[["Violencia","Homofobia","Xenofobia"]]
 
 tokenizador=AutoTokenizer.from_pretrained("dccuchile/tulio-chilean-spanish-bert",from_tf=False)
 criterion=nn.BCEWithLogitsLoss()
 
-XEntrenamiento,XTemporal,yEntrenamiento,yTemporal=train_test_split(X,y,test_size=0.3,random_state=semilla)
-XTesting,XValidacion,yTesting,yValidacion=train_test_split(XTemporal,yTemporal,test_size=0.15,random_state=semilla)
+XTesting,XValidacion,yTesting,yValidacion=train_test_split(XValTest,yValTest,test_size=0.4,random_state=semilla)
 
 train_ds=TweetDataset(XEntrenamiento,yEntrenamiento,tokenizador)
 val_ds=TweetDataset(XValidacion,yValidacion,tokenizador)
 test_ds=TweetDataset(XTesting,yTesting,tokenizador)
 
-diccMejoresCombinaciones={"F1Macro":None,"F1Micro":None,"PromedioPrecision":None,"PromedioRecall":None}
+diccMejoresCombinaciones={"F1Macro":None,"F1Micro":None,"PromedioPrecision":None,"PromedioRecall":None,"PromedioAccuracy":None}
 
-for epoca,lr,bs,wr,wd in itertools.product(
-        EPOCHS,LEARNING_RATES,BATCH_SIZES,WARMUP_RATIOS,WEIGHT_DECAYS):
+for c in combinaciones:
+    
+    epoca,lr,bs,wr,wd=c[0],c[1],c[2],c[3],c[4]
     torch.cuda.empty_cache()
     gc.collect()
     combinacionActual=(epoca,lr,bs,wr,wd)
@@ -109,7 +125,12 @@ for epoca,lr,bs,wr,wd in itertools.product(
         print("Se actualizo promedio Recall")
         diccMejoresCombinaciones["PromedioRecall"]=(combinacionActual,dicc)
         torch.save(modelo.state_dict(),"MejorModeloPromedioRecall.pth")
+    if diccMejoresCombinaciones["PromedioAccuracy"] is None or dicc["promedioAccuracy"]>diccMejoresCombinaciones["PromedioAccuracy"][1]["promedioAccuracy"]:
+        print("Se actualizo accuracy")
+        diccMejoresCombinaciones["PromedioAccuracy"]=(combinacionActual,dicc)
+        torch.save(modelo.state_dict(),"MejorModeloAccuracy.pth")
     
+
     with open("RegistroCombinacionesResultados.txt", "a",encoding="utf-8") as registro:
       registro.write(f"{combinacionActual}: {dicc}\n")
       
@@ -128,35 +149,39 @@ with open("MejoresCombinaciones.txt","w") as archivo:
     archivo.write(f"Los resultados finales de la validacion para la mejor combinacion F1-Micro ({diccMejoresCombinaciones['F1Micro'][0]})"+str(diccMejoresCombinaciones['F1Micro'][1])+"\n")
     archivo.write(f"Los resultados finales de la validacion para la mejor combinacion promedio Precision ({diccMejoresCombinaciones['PromedioPrecision'][0]})"+str(diccMejoresCombinaciones['PromedioPrecision'][1])+"\n")
     archivo.write(f"Los resultados finales de la validacion para la mejor combinacion promedio Recall ({diccMejoresCombinaciones['PromedioRecall'][0]})"+str(diccMejoresCombinaciones['PromedioRecall'][1])+"\n")
-
+    archivo.write(f"Los resultados finales de la validacion para la mejor combinacion Accuracy ({diccMejoresCombinaciones['PromedioAccuracy'][0]})"+str(diccMejoresCombinaciones['PromedioAccuracy'][1])+"\n")
+    
 print("Se esta testeando las mejores combinaciones encontradas con el conjunto de testing")
 modeloTestF1Macro=TweetClasificador(dropout=0.3).to(device)
 modeloTestF1Micro=TweetClasificador(dropout=0.3).to(device)
 modeloTestPromedioPrecision=TweetClasificador(dropout=0.3).to(device)
 modeloTestPromedioRecall=TweetClasificador(dropout=0.3).to(device)
+modeloTestAccuracy=TweetClasificador(dropout=0.3).to(device)
+
 
 modeloTestF1Macro.load_state_dict(torch.load("MejorModeloF1Macro.pth"))
 modeloTestF1Micro.load_state_dict(torch.load("MejorModeloF1Micro.pth"))
 modeloTestPromedioPrecision.load_state_dict(torch.load("MejorModeloPromedioPrecision.pth"))
 modeloTestPromedioRecall.load_state_dict(torch.load("MejorModeloPromedioRecall.pth"))
+modeloTestAccuracy.load_state_dict(torch.load("MejorModeloAccuracy.pth"))
 
 testLoaderF1Macro=DataLoader(test_ds, batch_size=diccMejoresCombinaciones["F1Macro"][0][2], shuffle=False)
 testLoaderF1Micro=DataLoader(test_ds, batch_size=diccMejoresCombinaciones["F1Micro"][0][2], shuffle=False)
 testLoaderPromedioPrecision=DataLoader(test_ds, batch_size=diccMejoresCombinaciones["PromedioPrecision"][0][2], shuffle=False)
 testLoaderPromedioRecall=DataLoader(test_ds, batch_size=diccMejoresCombinaciones["PromedioRecall"][0][2], shuffle=False)
+testLoaderAccuracy=DataLoader(test_ds, batch_size=diccMejoresCombinaciones["PromedioAccuracy"][0][2], shuffle=False)
 
 print("Se estan evaluando los modelos")
 diccResultadosF1Macro=Evaluacion(modeloTestF1Macro,testLoaderF1Macro,criterion,device)
 diccResultadosF1Micro=Evaluacion(modeloTestF1Micro,testLoaderF1Micro,criterion,device)
 diccResultadosPromedioPrecision=Evaluacion(modeloTestPromedioPrecision,testLoaderPromedioPrecision,criterion,device)
 diccResultadosPromedioRecall=Evaluacion(modeloTestPromedioRecall,testLoaderPromedioRecall,criterion,device)
+diccResultadosAccuracy=Evaluacion(modeloTestAccuracy,testLoaderAccuracy,criterion,device)
+
 print("El proceso ha terminado")
 with open("ResultadosTestingModelos.txt","w") as archivo:
     archivo.write("Modelo f1Macro: "+str(diccResultadosF1Macro)+"\n")
     archivo.write("Modelo f1Micro: "+str(diccResultadosF1Micro)+"\n")
     archivo.write("Modelo promedio Precision:"+str(diccResultadosPromedioPrecision)+"\n")
     archivo.write("Modelo promedio Recall"+str(diccResultadosPromedioRecall)+"\n")
-
-
-
-
+    archivo.write("Modelo Accuracy"+str(diccResultadosAccuracy)+"\n")
